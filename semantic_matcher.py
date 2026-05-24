@@ -1,6 +1,5 @@
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
 
 class SemanticMatcher:
@@ -9,56 +8,70 @@ class SemanticMatcher:
 
         self.assessments = assessments
 
-        print("Loading embedding model...")
+        self.documents = []
 
-        self.model = SentenceTransformer(
-            "all-MiniLM-L6-v2"
-        )
-
-        self.search_texts = []
+        # ---------------------------------
+        # Build searchable text
+        # ---------------------------------
 
         for item in assessments:
 
-            combined_text = f"""
-            {item['name']}
-            {item['description']}
-            {' '.join(item['job_levels'])}
-            {' '.join(item['keys'])}
-            """
+            text = " ".join([
 
-            self.search_texts.append(combined_text)
+                item.get("name", ""),
+                item.get("description", ""),
+                item.get("job_levels_raw", ""),
+                item.get("test_type", ""),
+                " ".join(item.get("keys", []))
 
-        print("Creating embeddings...")
+            ])
 
-        self.embeddings = self.model.encode(
-            self.search_texts,
-            convert_to_numpy=True
+            self.documents.append(text)
+
+        # ---------------------------------
+        # TF-IDF Vectorizer
+        # ---------------------------------
+
+        self.vectorizer = TfidfVectorizer(
+            stop_words="english"
         )
 
-        print("Semantic engine ready.")
-
-    def search(self, query, top_k=5):
-
-        query_embedding = self.model.encode(
-            [query],
-            convert_to_numpy=True
+        self.document_vectors = self.vectorizer.fit_transform(
+            self.documents
         )
 
-        similarity_scores = cosine_similarity(
-            query_embedding,
-            self.embeddings
+    # ---------------------------------
+    # Search Function
+    # ---------------------------------
+
+    def search(
+        self,
+        query,
+        top_k=5
+    ):
+
+        query_vector = self.vectorizer.transform(
+            [query]
+        )
+
+        similarities = cosine_similarity(
+            query_vector,
+            self.document_vectors
         )[0]
 
-        best_indexes = np.argsort(
-            similarity_scores
-        )[::-1][:top_k]
+        scored = list(zip(
+            self.assessments,
+            similarities
+        ))
 
-        results = []
+        scored.sort(
+            key=lambda x: x[1],
+            reverse=True
+        )
 
-        for idx in best_indexes:
-
-            results.append(
-                self.assessments[idx]
-            )
+        results = [
+            item[0]
+            for item in scored[:top_k]
+        ]
 
         return results
