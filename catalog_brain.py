@@ -13,7 +13,7 @@ class CatalogBrain:
         self.load_catalog()
 
     # ---------------------------------
-    # Clean invalid control characters
+    # Clean malformed JSON characters
     # ---------------------------------
 
     def clean_json_text(
@@ -21,7 +21,6 @@ class CatalogBrain:
         text
     ):
 
-        # remove problematic control chars
         text = re.sub(
             r'[\x00-\x1F\x7F]',
             '',
@@ -31,7 +30,23 @@ class CatalogBrain:
         return text
 
     # ---------------------------------
-    # Load catalog safely
+    # Infer grounded test type
+    # ---------------------------------
+
+    def infer_test_type(
+        self,
+        keys
+    ):
+
+        if not keys:
+
+            return "Unknown"
+
+        # Return first grounded category
+        return keys[0]
+
+    # ---------------------------------
+    # Load catalog
     # ---------------------------------
 
     def load_catalog(self):
@@ -56,32 +71,50 @@ class CatalogBrain:
 
         for item in raw_data:
 
+            keys = item.get(
+                "keys",
+                []
+            )
+
             assessment = {
 
                 # ---------------------------------
-                # Core fields
+                # Name
                 # ---------------------------------
 
                 "name":
-                item.get("name", ""),
-
-                "description":
-                item.get("description", ""),
-
-                "test_type":
-                item.get("test_type", ""),
+                item.get(
+                    "name",
+                    ""
+                ),
 
                 # ---------------------------------
-                # URL handling
+                # Description
+                # ---------------------------------
+
+                "description":
+                item.get(
+                    "description",
+                    ""
+                ),
+
+                # ---------------------------------
+                # URL
                 # ---------------------------------
 
                 "url":
-                (
-                    item.get("url")
-                    or item.get("product_url")
-                    or item.get("link")
-                    or item.get("catalog_url")
-                    or ""
+                item.get(
+                    "link",
+                    ""
+                ),
+
+                # ---------------------------------
+                # Test Type
+                # ---------------------------------
+
+                "test_type":
+                self.infer_test_type(
+                    keys
                 ),
 
                 # ---------------------------------
@@ -89,16 +122,25 @@ class CatalogBrain:
                 # ---------------------------------
 
                 "job_levels_raw":
-                item.get("job_levels_raw", ""),
+                item.get(
+                    "job_levels_raw",
+                    ""
+                ),
 
                 "keys":
-                item.get("keys", []),
+                keys,
 
                 "languages":
-                item.get("languages", []),
+                item.get(
+                    "languages",
+                    []
+                ),
 
                 "duration":
-                item.get("duration", "")
+                item.get(
+                    "duration",
+                    ""
+                )
             }
 
             cleaned.append(
